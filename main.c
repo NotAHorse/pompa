@@ -6,7 +6,7 @@
 */
 
 /*
-reset			RESET	  U		pc5	adc - czujnik ciœnienia
+reset			RESET	  U		pc5	adc - czujnik ciÅ›nienia
 LED0			pd0				pc4		
 LED1			pd1				pc3		
 LED2			pd2				pc2
@@ -19,7 +19,7 @@ LED tryb2		pb7				pb5	SCK   \							guzik up
 LED5			pd5				pb4	MISO   | - PROGRAMOWANIE		guzik down
 LED6			pd6				pb3	MOSI  /							
 LED7			pd7				pb2		LED tryb1
-przekaŸnik		pb0            	pb1 	LED tryb0
+przekaÅºnik		pb0            	pb1 	LED tryb0
 
 
 
@@ -40,11 +40,11 @@ LED tryb0 - LED tryb2 - wyswietla stan kontroli, binarnie od 1 do 6.
 // obsluga timerow:
 void tim1_set(int t); // t w milisekundach
 void tim1_reset();
-int tim1_resNum = 0;
+unsigned int tim1_resNum = 0;
 
 void tim0_set(int t); //t w milisekundach
 void tim0_reset();
-int tim0_resNum = 0;
+unsigned int tim0_resNum = 0;
 unsigned char tim0_mem = 0;
 
 char tim1 = 0;
@@ -57,12 +57,15 @@ char tim0 = 0;
 #define min_val_u 118
 #define min_val_l 0
 
-int i, wartosc_czujnika_t[50], wartosc_czujnika_t_avg;
+#define sample_count 50
+
+unsigned int i;
+unsigned long wartosc_czujnika_t[sample_count], wartosc_czujnika_t_sum;
 
 int main(void)
 {
 	unsigned char stan_histereza, stan_kontrola, sleep;
-	unsigned char wys_cis, wys_stan_k;
+	unsigned char wys_cis, wys_cis_tmp, wys_stan_k;
 	
 	int maks_czujnika;
 	
@@ -109,15 +112,15 @@ int main(void)
 	wys_stan_k = 6;
 	sleep = 0;
 	
-	MAX = 110;		//zmieñmy jednak ograniczenia do 0 - 110. Dlaczego? Bo w sumie nie widzê czemu nie. U¿ytkownik tego powinien byæ wystarczaj¹co inteligentny
-	MIN = 108;		//aby wiedzieæ co robi, a czasem mo¿e potrzebowaæ takich parametrów. Kiedy? - nie wiem.
+	MAX = 110;		//zmieÅ„my jednak ograniczenia do 0 - 110. Dlaczego? Bo w sumie nie widzÄ™ czemu nie. UÅ¼ytkownik tego powinien byÄ‡ wystarczajÄ…co inteligentny
+	MIN = 108;		//aby wiedzieÄ‡ co robi, a czasem moÅ¼e potrzebowaÄ‡ takich parametrÃ³w. Kiedy? - nie wiem.
 	
 	przekaznik = 0;
 	wys_cis = 100;
 	maks_czujnika = 512;
 	wartosc_czujnika = 100;
-	for(i = 0; i < 50; i++){wartosc_czujnika_t[i] = maks_czujnika;}
-	wartosc_czujnika_t_avg = maks_czujnika;
+	for(i = 0; i < sample_count; i++){wartosc_czujnika_t[i] = maks_czujnika;}
+	wartosc_czujnika_t_sum = maks_czujnika*sample_count;
 	i = 0;
 	
 	while (1)
@@ -369,7 +372,7 @@ int main(void)
 			wys_cis = 0;
 			wys_stan_k = 4;
 			
-			maks_czujnika = wartosc_czujnika_t_avg;
+			maks_czujnika = ((float)(wartosc_czujnika_t_sum))/((float)(sample_count));
 			
 			stan_kontrola = 1;
 			
@@ -444,7 +447,7 @@ int main(void)
 				stan_kontrola = 1;
 			}
 			if(!tim1){
-				tim1_set(1000);
+				tim1_set(10000);
 				stan_kontrola = 62;
 			}
 			break;
@@ -458,7 +461,7 @@ int main(void)
 				stan_kontrola = 1;
 			}
 			if(!tim1){
-				tim1_set(10000);
+				tim1_set(1000);
 				stan_kontrola = 61;
 			}
 			break;
@@ -468,7 +471,9 @@ int main(void)
 		}
 		
 		//a teraz czas na obsluge we/wy
-		PORTD = (wys_cis&128)|(wys_cis&64)|(wys_cis&32)|(wys_cis&16)|(wys_cis&8)|(wys_cis&4)|(wys_cis&2)|(wys_cis&1);
+		wys_cis_tmp = ((wys_cis>>7) & 0b00000001) | ((wys_cis>>5) & 0b00000010) | ((wys_cis>>3) & 0b00000100) | ((wys_cis>>1) & 0b00001000) | ((wys_cis<<1) & 0b00010000) | 
+		((wys_cis<<3) & 0b00100000) | ((wys_cis<<5) & 0b01000000) | ((wys_cis<<7) & 0b10000000); 
+		PORTD = wys_cis_tmp;
 		
 		
 		(przekaznik)?(PORTB &= 0b11111110):(PORTB |= 0b00000001);
@@ -497,7 +502,7 @@ int main(void)
 
 			
 	if(!(ADCSRA&(1<<ADSC))){ADCSRA |= (1<<ADSC);}
-		wartosc_czujnika = (unsigned char)(((float)(wartosc_czujnika_t_avg)/(float)maks_czujnika)*100);
+		wartosc_czujnika = (unsigned char)(((float)(wartosc_czujnika_t_sum)/((float)maks_czujnika))*100.0/sample_count);
 		
 		
 		
@@ -509,7 +514,7 @@ int main(void)
 
 
 void tim1_set(int t){
-	int res;
+	unsigned int res;
 	tim1_reset();
 	res = t/16776;
 	tim1 = 1;
@@ -520,7 +525,7 @@ void tim1_set(int t){
 	OCR1A = (t*3.90625);
 	sei();
 	
-	TCCR1B |= (1<<CS12); //przy 1mhz daje to 3906.25 cykli na sekundê, czyli 3.90625 cykla na milisekundê
+	TCCR1B |= (1<<CS12); //przy 1mhz daje to 3906.25 cykli na sekundÄ™, czyli 3.90625 cykla na milisekundÄ™
 
 }
 
@@ -548,7 +553,7 @@ ISR(TIMER1_OVF_vect){
 }
 
 void tim0_set(int t){
-	int res;
+	unsigned int res;
 	tim0_reset();
 	res = t/261;
 	tim0 = 1;
@@ -562,7 +567,7 @@ void tim0_set(int t){
 		tim0_mem = (unsigned char)((261-t)*0.9765625)%255;
 	}
 	
-	TCCR0 |= (1<<CS02) | (1<<CS00); //przy 1mhz daje to 976.5625 cykli na sekundê, czyli 1ms = 0.9765625 cykla
+	TCCR0 |= (1<<CS02) | (1<<CS00); //przy 1mhz daje to 976.5625 cykli na sekundÄ™, czyli 1ms = 0.9765625 cykla
 }
 
 void tim0_reset(){
@@ -595,7 +600,8 @@ ISR(TIMER0_OVF_vect){
 
 ISR(ADC_vect){
 	++i;
-	if(i >= 50){i =0;}
+	if(i == sample_count){i =0;}
+	wartosc_czujnika_t_sum -= wartosc_czujnika_t[i];
 	wartosc_czujnika_t[i] = ADCW;
-	wartosc_czujnika_t_avg = wartosc_czujnika_t_avg + (wartosc_czujnika_t[i])/50 - (((i==49)?(wartosc_czujnika_t[0]):(wartosc_czujnika_t[i+1])))/50;
+	wartosc_czujnika_t_sum += wartosc_czujnika_t[i];
 }
