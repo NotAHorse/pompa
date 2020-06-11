@@ -65,7 +65,7 @@ unsigned long wartosc_czujnika_t[sample_count], wartosc_czujnika_t_sum;
 int main(void)
 {
 	unsigned char stan_histereza, stan_kontrola, sleep;
-	unsigned char wys_cis, wys_cis_tmp, wys_stan_k;
+	unsigned char wys_cis, wys_stan_k;
 	
 	int maks_czujnika;
 	
@@ -471,9 +471,9 @@ int main(void)
 		}
 		
 		//a teraz czas na obsluge we/wy
-		wys_cis_tmp = ((wys_cis>>7) & 0b00000001) | ((wys_cis>>5) & 0b00000010) | ((wys_cis>>3) & 0b00000100) | ((wys_cis>>1) & 0b00001000) | ((wys_cis<<1) & 0b00010000) | 
+		PORTD = ((wys_cis>>7) & 0b00000001) | ((wys_cis>>5) & 0b00000010) | ((wys_cis>>3) & 0b00000100) | ((wys_cis>>1) & 0b00001000) | ((wys_cis<<1) & 0b00010000) | 
 		((wys_cis<<3) & 0b00100000) | ((wys_cis<<5) & 0b01000000) | ((wys_cis<<7) & 0b10000000); 
-		PORTD = wys_cis_tmp;
+	
 		
 		
 		(przekaznik)?(PORTB &= 0b11111110):(PORTB |= 0b00000001);
