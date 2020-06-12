@@ -51,10 +51,10 @@ char tim1 = 0;
 char tim0 = 0;
 //koniec timerow
 
-#define max_val_u 120
+#define max_val_u 250
 #define max_val_l 2
 
-#define min_val_u 118
+#define min_val_u 248
 #define min_val_l 0
 
 #define sample_count 50
@@ -70,6 +70,7 @@ int main(void)
 	int maks_czujnika;
 	
 	unsigned char wartosc_czujnika;
+	int wartosc_czujnika_set;
 	
 	unsigned char przekaznik, up, down, sel;		//0 = off, 1 = on
 	unsigned char s;
@@ -112,12 +113,12 @@ int main(void)
 	wys_stan_k = 6;
 	sleep = 0;
 	
-	MAX = 110;		//zmieńmy jednak ograniczenia do 0 - 110. Dlaczego? Bo w sumie nie widzę czemu nie. Użytkownik tego powinien być wystarczająco inteligentny
-	MIN = 108;		//aby wiedzieć co robi, a czasem może potrzebować takich parametrów. Kiedy? - nie wiem.
+	MAX = 140;
+	MIN = 138;		
 	
 	przekaznik = 0;
 	wys_cis = 100;
-	maks_czujnika = 512;
+	maks_czujnika = 481;
 	wartosc_czujnika = 100;
 	for(i = 0; i < sample_count; i++){wartosc_czujnika_t[i] = maks_czujnika;}
 	wartosc_czujnika_t_sum = maks_czujnika*sample_count;
@@ -335,6 +336,10 @@ int main(void)
 				tim1_set(2500);
 				stan_kontrola = 41;
 			}
+			else if(down){
+				tim1_set(2500);
+				stan_kontrola=44;
+			}
 			break;
 			case 41:
 			wys_cis = 1;
@@ -377,6 +382,122 @@ int main(void)
 			stan_kontrola = 1;
 			
 			break;
+			
+			case 44:
+			wys_cis = 128;
+			wys_stan_k = 4;
+			
+			if(sel)	{
+				stan_kontrola = 5;
+				tim1_set(500);
+			}
+			else if(down&&!tim1){
+				tim1_set(2500);
+				stan_kontrola = 45;
+			}
+			else if(!down){
+				stan_kontrola = 4;
+			}
+			break;
+			case 45:
+			wys_cis = 192;
+			wys_stan_k = 4;
+			
+			if(sel)	{
+				tim1_set(500);
+				stan_kontrola = 5;
+				
+			}
+			else if(down&&!tim1){
+				tim1_reset();
+				wartosc_czujnika_set = wartosc_czujnika;
+				stan_kontrola = 46;
+			}
+			else if(!down){
+				stan_kontrola = 4;
+			}
+			break;
+			
+			case 46:
+			wys_cis = wartosc_czujnika_set;
+			wys_stan_k = 4;
+			
+			if(sel)
+			{
+				tim1_set(500);
+				stan_kontrola = 5;
+			}
+			else if(up^down)
+			{
+				tim1_set(5000);
+				tim0_set(1000);
+				stan_kontrola = 47;
+			}
+			break;
+			
+			case 47:
+			wys_cis = wartosc_czujnika_set;
+			wys_stan_k = 4;
+			
+			
+			if(!(up^down))
+			{
+				tim0_reset();
+				tim1_reset();
+				maks_czujnika = (((((float)(wartosc_czujnika_t_sum))/((float)(sample_count)))*100.0)/((float)(wartosc_czujnika_set)));
+				stan_kontrola = 46;
+			}
+			else if(!tim0){
+				tim0_set(1000);
+				
+				if(up){
+					++wartosc_czujnika_set;
+				}
+				else if(down){
+					--wartosc_czujnika_set;
+				}
+				
+				
+				if(wartosc_czujnika_set < 1){wartosc_czujnika_set = 1;}
+				else if(wartosc_czujnika_set > 255){wartosc_czujnika_set = 255;}
+
+			}
+			else if(!tim1)
+			{
+				tim1_reset();
+				tim0_set(1000);
+				stan_kontrola = 48;
+			}
+			break;
+			
+			case 48:
+			wys_cis = wartosc_czujnika_set;
+			wys_stan_k = 4;
+			
+			
+			if(!(up^down))
+			{
+				stan_kontrola = 46;
+				maks_czujnika = (((((float)(wartosc_czujnika_t_sum))/((float)(sample_count)))*100.0)/((float)(wartosc_czujnika_set)));
+				tim0_reset();
+				tim1_reset();
+			}
+			else if(!tim0){
+				tim0_set(1000);
+				
+				if(up){
+					wartosc_czujnika_set+=5;
+				}
+				else if(down){
+					wartosc_czujnika_set-=5;
+				}
+				
+				
+				if(wartosc_czujnika_set < 1){wartosc_czujnika_set = 1;}
+				else if(wartosc_czujnika_set > 255){wartosc_czujnika_set = 255;}
+			}			
+			break;
+			
 			case 5:
 			wys_cis = 0b01010101;
 			wys_stan_k = 5;
@@ -474,23 +595,12 @@ int main(void)
 		PORTD = ((wys_cis>>7) & 0b00000001) | ((wys_cis>>5) & 0b00000010) | ((wys_cis>>3) & 0b00000100) | ((wys_cis>>1) & 0b00001000) | ((wys_cis<<1) & 0b00010000) | 
 		((wys_cis<<3) & 0b00100000) | ((wys_cis<<5) & 0b01000000) | ((wys_cis<<7) & 0b10000000); 
 	
-		
-		
 		(przekaznik)?(PORTB &= 0b11111110):(PORTB |= 0b00000001);
 		
 		(wys_stan_k&4)?(PORTB |= 0b10000000):(PORTB &= 0b01111111);
 		(wys_stan_k&2)?(PORTB |= 0b00000100):(PORTB &= 0b11111011);
 		(wys_stan_k&1)?(PORTB |= 0b00000010):(PORTB &= 0b11111101);
 		
-		/*
-		if(bit_is_clear(PINB,PB1) && d ==0){down = 1; d = 1;}
-		else if(bit_is_clear(PINB,PB1) && down == 1){down = 0;}
-		if(bit_is_set(PINB, PB1)){d = 0; down = 0;}
-		
-		if(bit_is_clear(PINB,PB2) && u ==0){up = 1; u = 1;}
-		else if(bit_is_clear(PINB,PB2) && up == 1){up = 0;}
-		if(bit_is_set(PINB, PB2)){u = 0; up = 0;}
-			*/
 		if(bit_is_clear(PINB,PB6) && sel == 1){sel = 0;}
 		if(bit_is_clear(PINB,PB6) && s ==0){sel = 1; s = 1;}
 		if(bit_is_set(PINB, PB6)){s = 0; sel = 0;} 
@@ -498,15 +608,12 @@ int main(void)
 		
 		(bit_is_clear(PINB, PB4))?(down = 1):(down = 0);
 		(bit_is_clear(PINB, PB5))?(up = 1):(up = 0);
-		//(bit_is_clear(PINB, PC6))?(sel = 1):(sel = 0);
 
 			
 	if(!(ADCSRA&(1<<ADSC))){ADCSRA |= (1<<ADSC);}
-		wartosc_czujnika = (unsigned char)(((float)(wartosc_czujnika_t_sum)/((float)maks_czujnika))*100.0/sample_count);
+	wartosc_czujnika = (unsigned char)(((float)(wartosc_czujnika_t_sum)/((float)maks_czujnika))*100.0/sample_count);
 		
-		
-		
-		
+	
 	}
 }
 
